@@ -1,4 +1,6 @@
 node_modules/
+!node_modules/@notionhq/
+!node_modules/@project-ajax/
 dist/
 .env
 .env.local
