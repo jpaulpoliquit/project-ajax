@@ -1,6 +1,6 @@
-# Notion Worker
+# Worker
 
-Experimental Notion worker that takes a URL as input, fetches the page content, and returns a concise AI-generated summary (2-3 paragraphs).
+Experimental worker project built with the project-ajax SDK.
 
 ## Setup
 
@@ -25,13 +25,5 @@ Experimental Notion worker that takes a URL as input, fetches the page content, 
 ```bash
 npm run dev      # Run worker locally
 npm run check    # Type-check the code
-npm run deploy   # Deploy to Notion (opens browser for authentication)
+npm run deploy   # Deploy worker (opens browser for authentication)
 ```
-
-## Goal
-
-Build a Notion worker tool that:
-- Takes a URL as input
-- Fetches the page content
-- Returns a concise AI-generated summary (2-3 paragraphs)
-- Handles articles, blog posts, and documentation pages
