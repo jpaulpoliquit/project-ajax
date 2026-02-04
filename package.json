@@ -1,0 +1,26 @@
+{
+  "name": "notion-worker",
+  "version": "0.1.0",
+  "description": "Experimental Notion worker that fetches page content and returns AI-generated summaries",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "dev": "workers dev",
+    "deploy": "workers deploy"
+  },
+  "keywords": [
+    "notion",
+    "worker",
+    "ai",
+    "summary"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@project-ajax/sdk": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
