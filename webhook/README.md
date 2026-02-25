@@ -37,6 +37,19 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
    npx workers exec telegramDeleteWebhook -d '{}'
    ```
 
+## Telegram privacy mode (important)
+
+By default, **@mentioning the bot in plain text does NOT send the message to the bot**. Telegram's privacy mode only delivers:
+- Commands like `/start`, `/summarize@notionworkerbot`
+- Replies to the bot's messages
+
+To receive all messages (including @mentions), disable privacy mode:
+
+1. Open [@BotFather](https://t.me/BotFather) in Telegram
+2. Send `/mybots` → select your bot
+3. **Bot Settings** → **Group Privacy** → **Turn off**
+4. **Remove the bot from the group and add it again** (required for the change to take effect)
+
 ## Flow
 
 1. User sends message in Telegram

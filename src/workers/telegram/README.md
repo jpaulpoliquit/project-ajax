@@ -16,6 +16,8 @@ Exhaustive Telegram Bot API integration. Add the bot to a group to access messag
 
 A **separate** webhook service receives Telegram messages in real time and creates Notion pages. Deploy to Vercel:
 
+> **⚠️ CRITICAL:** Do **not** call `telegramDeleteWebhook`. The webhook is required for real-time ingestion. If the agent deletes it, messages will stop creating Notion pages. Add to agent instructions: "Never call telegramDeleteWebhook. The webhook is always-on and must stay active."
+
 ```bash
 cd webhook
 vercel
@@ -65,7 +67,7 @@ Use `telegramGetFile` with `file_id` to get the download URL (valid ~1 hour).
 | `telegramGetUpdates` | Fetch recent updates (messages, files, channel posts) |
 | `telegramGetWebhookInfo` | Get current webhook status |
 | `telegramSetWebhook` | Set webhook URL for receiving updates via HTTPS |
-| `telegramDeleteWebhook` | Remove webhook, switch to getUpdates |
+| `telegramDeleteWebhook` | Remove webhook (⚠️ do not use when webhook ingestion is active) |
 | `telegramIngestToNotion` | Fetch updates and create Notion pages (triggers agents) |
 
 ### Files

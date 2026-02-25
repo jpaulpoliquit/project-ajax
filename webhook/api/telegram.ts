@@ -30,27 +30,32 @@ function extractFiles(msg: Record<string, unknown>): string[] {
 	return types;
 }
 
-function getMessage(msg: Record<string, unknown>): { text: string; chat: { id: number; title?: string; type?: string }; message_id: number } | null {
+function getMessage(msg: Record<string, unknown>): { text: string; chat: { id: number; title?: string; type?: string }; message_id: number; message_thread_id?: number } | null {
 	const chat = msg.chat as { id: number; title?: string; type?: string } | undefined;
 	const message_id = msg.message_id as number | undefined;
 	if (!chat || message_id == null) return null;
 	const text = (msg.text as string) ?? (msg.caption as string) ?? "";
-	return { text, chat, message_id };
+	const message_thread_id = msg.message_thread_id as number | undefined;
+	return { text, chat, message_id, ...(message_thread_id != null && { message_thread_id }) };
 }
 
 export const config = { api: { bodyParser: true } };
 
-async function setMessageReaction(chatId: number, messageId: number): Promise<void> {
+async function setMessageReaction(chatId: number, messageId: number, messageThreadId?: number): Promise<void> {
 	const token = process.env.TELEGRAM_BOT_TOKEN;
 	if (!token) return;
+	const body: Record<string, unknown> = {
+		chat_id: chatId,
+		message_id: messageId,
+		reaction: [{ type: "emoji", emoji: "👀" }],
+	};
+	if (messageThreadId != null) {
+		body.message_thread_id = messageThreadId;
+	}
 	await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			chat_id: chatId,
-			message_id: messageId,
-			reaction: [{ type: "emoji", emoji: "👀" }],
-		}),
+		body: JSON.stringify(body),
 	});
 }
 
@@ -90,12 +95,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		return res.json({ ok: true });
 	}
 
-	const { text, chat, message_id } = parsed;
+		const { text, chat, message_id, message_thread_id } = parsed;
 	const chatLabel = chat.title ?? `Chat ${chat.id}`;
 	const title = text.trim().slice(0, 100) || `[${chatLabel}] Message #${message_id}`;
 	const files = extractFiles(msg);
 	const fileSummary = files.length > 0 ? `\n\nAttachments: ${files.join(", ")}` : "";
-	const content = `From: ${chatLabel} (${chat.type ?? "chat"})
+	const topicInfo = message_thread_id != null ? `\nTopic/Thread ID: ${message_thread_id}` : "";
+	const content = `From: ${chatLabel} (${chat.type ?? "chat"})${topicInfo}
 Chat ID: ${chat.id}
 Message ID: ${message_id}
 ${text}${fileSummary}`;
@@ -131,8 +137,8 @@ ${text}${fileSummary}`;
 			],
 		});
 
-		// Send immediate confirmation so user knows it worked
-		await setMessageReaction(chat.id, message_id);
+		// Send immediate confirmation so user knows it worked (incl. forum topics)
+		await setMessageReaction(chat.id, message_id, message_thread_id);
 	} catch (err) {
 		console.error("Notion create failed:", err);
 		return res.status(500).json({
