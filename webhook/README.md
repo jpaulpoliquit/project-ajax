@@ -27,12 +27,16 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
 
 4. **Share the Notion database** with your integration (Share → Invite → your integration).
 
-5. **Register the webhook** with Telegram:
+5. **For topic summarization** (reading full message history): The webhook blocks `telegramGetUpdates`. Use a **history bot** – see [src/workers/telegram/README.md](../src/workers/telegram/README.md) "Reading message history while webhook is active". Set `TELEGRAM_HISTORY_BOT_TOKEN` in the worker env and add the history bot to the same groups. The agent should use `telegramGetUpdatesFromHistoryBot` for summarization.
+
+6. **Optional:** Add filterable properties (Chat ID, Topic ID) to the Notion database for agent queries.
+
+7. **Register the webhook** with Telegram:
    ```bash
    npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
    ```
 
-6. **Delete webhook** to switch back to polling:
+8. **Delete webhook** to switch back to polling:
    ```bash
    npx workers exec telegramDeleteWebhook -d '{}'
    ```

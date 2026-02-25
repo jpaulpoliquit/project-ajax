@@ -8,6 +8,19 @@ Exhaustive Telegram Bot API integration. Add the bot to a group to access messag
 2. Set `TELEGRAM_BOT_TOKEN` in your environment
 3. Add the bot to your group(s)
 
+### Reading message history while webhook is active
+
+When the main bot uses a webhook (real-time ingestion), `telegramGetUpdates` returns 409 because Telegram delivers updates to only one destination. To read message history (e.g. for topic summarization), use a **second bot**:
+
+1. Create a second bot via [@BotFather](https://t.me/BotFather)
+2. Add it to the **same groups** as the main bot
+3. Set `TELEGRAM_HISTORY_BOT_TOKEN` in your environment
+4. **Do not** set a webhook on the history bot
+
+The agent can then use `telegramGetUpdatesFromHistoryBot` to fetch updates. Filter results by `chat_id` and `message_thread_id` (for forum topics) to get the relevant messages.
+
+**Agent instructions:** Add: "When summarizing a Telegram topic, use `telegramGetUpdatesFromHistoryBot` (not `telegramGetUpdates`). Filter the returned updates by chat_id and message_thread_id to get messages for the target topic."
+
 ## Telegram → Notion Ingestion
 
 **Two options:**
@@ -64,7 +77,8 @@ Use `telegramGetFile` with `file_id` to get the download URL (valid ~1 hour).
 
 | Tool | Description |
 |------|-------------|
-| `telegramGetUpdates` | Fetch recent updates (messages, files, channel posts) |
+| `telegramGetUpdates` | Fetch recent updates (messages, files, channel posts). Fails with 409 when webhook is active. |
+| `telegramGetUpdatesFromHistoryBot` | Same as above, but uses a second bot with no webhook. Use for reading history when webhook is active. Requires `TELEGRAM_HISTORY_BOT_TOKEN`. |
 | `telegramGetWebhookInfo` | Get current webhook status |
 | `telegramSetWebhook` | Set webhook URL for receiving updates via HTTPS |
 | `telegramDeleteWebhook` | Remove webhook (⚠️ do not use when webhook ingestion is active) |

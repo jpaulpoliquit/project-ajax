@@ -111,21 +111,38 @@ ${text}${fileSummary}`;
 
 	try {
 		const db = await notion.databases.retrieve({ database_id: dbId });
+		const props = db.properties as Record<string, { type?: string; status?: { options?: { name: string }[] }; select?: { options?: { name: string }[] } }>;
 		let titleProp = "Name";
-		for (const [name, prop] of Object.entries(db.properties)) {
-			if ((prop as { type?: string }).type === "title") {
-				titleProp = name;
-				break;
+		let chatIdProp: string | null = null;
+		let topicIdProp: string | null = null;
+		let statusProp: string | null = null;
+		let statusNotStarted: string | null = null;
+
+		for (const [name, prop] of Object.entries(props)) {
+			const t = prop?.type;
+			if (t === "title") titleProp = name;
+			else if (t === "number" && (name === "Chat ID" || name === "Telegram Chat ID")) chatIdProp = name;
+			else if (t === "number" && (name === "Topic ID" || name === "Telegram Topic ID")) topicIdProp = name;
+			else if (t === "status") {
+				statusProp = name;
+				const opts = prop?.status?.options;
+				const notStarted = opts?.find((o) => /not\s*started/i.test(o.name));
+				statusNotStarted = notStarted?.name ?? opts?.[0]?.name ?? null;
 			}
 		}
 
+		const pageProps: Record<string, unknown> = {
+			[titleProp]: {
+				title: [{ type: "text", text: { content: title } }],
+			},
+		};
+		if (chatIdProp) pageProps[chatIdProp] = { number: chat.id };
+		if (topicIdProp && message_thread_id != null) pageProps[topicIdProp] = { number: message_thread_id };
+		if (statusProp && statusNotStarted) pageProps[statusProp] = { status: { name: statusNotStarted } };
+
 		await notion.pages.create({
 			parent: { database_id: dbId },
-			properties: {
-				[titleProp]: {
-					title: [{ type: "text", text: { content: title } }],
-				},
-			},
+			properties: pageProps as Parameters<typeof notion.pages.create>[0]["properties"],
 			children: [
 				{
 					object: "block",

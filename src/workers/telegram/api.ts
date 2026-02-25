@@ -14,6 +14,23 @@ export function getBotToken(): string {
 	return token;
 }
 
+/**
+ * Returns the history bot token for getUpdates when the main bot has webhook active.
+ * Create a second bot via @BotFather, add it to the same groups, and set TELEGRAM_HISTORY_BOT_TOKEN.
+ * The history bot must NOT have a webhook set.
+ */
+export function getHistoryBotToken(): string {
+	const token = process.env.TELEGRAM_HISTORY_BOT_TOKEN;
+	if (!token) {
+		throw new Error(
+			"TELEGRAM_HISTORY_BOT_TOKEN is required for reading message history while webhook is active. " +
+				"Create a second bot via @BotFather, add it to the same groups as the main bot, and set this env var. " +
+				"Do NOT set a webhook on the history bot.",
+		);
+	}
+	return token;
+}
+
 export async function telegramApi<T>(
 	token: string,
 	method: string,
