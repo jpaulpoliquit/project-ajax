@@ -25,7 +25,7 @@ export function registerUpdatesTools(worker: Worker): void {
 		"telegramGetUpdates",
 		{
 			title: "Get Telegram Updates",
-			description: "Fetch recent updates (messages, files, channel posts). Add the bot to a group first. Returns file_id and file_unique_id for each attachment.",
+			description: "Fetch recent updates (messages, files, channel posts) using the history bot. Uses TELEGRAM_HISTORY_BOT_TOKEN (required when main bot has webhook active). Add the history bot to the same groups. Returns message_thread_id for forum topics.",
 			schema: {
 				type: "object",
 				properties: {
@@ -36,81 +36,6 @@ export function registerUpdatesTools(worker: Worker): void {
 						items: { type: "string" },
 						nullable: true,
 						description: "Update types: message, edited_message, channel_post, callback_query, etc.",
-					},
-				},
-				required: [],
-				additionalProperties: false,
-			} as JSONSchemaType<{ limit?: number; offset?: number; allowed_updates?: string[] }>,
-			execute: async (input) => {
-				const token = getBotToken();
-				const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
-				const result = await telegramApi<Array<{
-					update_id: number;
-					message?: {
-						message_id: number;
-						message_thread_id?: number;
-						text?: string;
-						caption?: string;
-						date?: number;
-						chat: { id: number; title?: string; type?: string };
-						document?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						photo?: Array<{ file_id: string; file_unique_id: string; file_size?: number }>;
-						video?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						audio?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						voice?: { file_id: string; file_unique_id: string; file_size?: number };
-						video_note?: { file_id: string; file_unique_id: string; file_size?: number };
-						animation?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						sticker?: { file_id: string; file_unique_id: string; file_size?: number };
-					};
-					channel_post?: { message_id: number; message_thread_id?: number; text?: string; caption?: string; date?: number; chat: { id: number; title?: string; type?: string }; document?: unknown; photo?: unknown; video?: unknown };
-					edited_message?: { message_id: number; message_thread_id?: number; text?: string; chat: { id: number; title?: string } };
-				}>>(token, "getUpdates", {
-					offset: input.offset,
-					limit,
-					allowed_updates: input.allowed_updates ?? ["message", "channel_post", "edited_message"],
-				});
-
-				const updates: UpdateItem[] = (result || []).map((u) => {
-					const msg = u.message ?? u.channel_post ?? u.edited_message;
-					if (!msg) return { update_id: u.update_id, chat_id: "", files: [] };
-					const files = extractFilesFromMessage(msg as Record<string, unknown>);
-					const chat = msg.chat as { id: number; title?: string; type?: string };
-					const m = msg as { message_thread_id?: number };
-					return {
-						update_id: u.update_id,
-						chat_id: String(chat.id),
-						chat_title: chat.title,
-						chat_type: chat.type,
-						message_id: msg.message_id,
-						...(m.message_thread_id != null && { message_thread_id: m.message_thread_id }),
-						text: msg.text,
-						caption: (msg as { caption?: string }).caption,
-						date: (msg as { date?: number }).date,
-						files,
-					};
-				});
-
-				return { updates };
-			},
-		},
-	);
-
-	worker.tool<{ limit?: number; offset?: number; allowed_updates?: string[] }, { updates: UpdateItem[] }>(
-		"telegramGetUpdatesFromHistoryBot",
-		{
-			title: "Get Telegram Updates (History Bot)",
-			description:
-				"Fetch recent updates using a secondary bot that has NO webhook. Use this when the main bot has webhook active (409 error on telegramGetUpdates). Requires TELEGRAM_HISTORY_BOT_TOKEN. Add the history bot to the same groups as the main bot. Returns message_thread_id for forum topics.",
-			schema: {
-				type: "object",
-				properties: {
-					limit: { type: "number", nullable: true, description: "Max updates (1-100, default 50)" },
-					offset: { type: "number", nullable: true, description: "Offset for pagination" },
-					allowed_updates: {
-						type: "array",
-						items: { type: "string" },
-						nullable: true,
-						description: "Update types: message, edited_message, channel_post, etc.",
 					},
 				},
 				required: [],

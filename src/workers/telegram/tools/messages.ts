@@ -7,11 +7,15 @@ import type { JSONSchemaType } from "ajv";
 import { getBotToken, telegramApi } from "../api.js";
 
 export function registerMessagesTools(worker: Worker): void {
-	worker.tool<{ chat_id: string; text: string; parse_mode?: string; disable_notification?: boolean; reply_to_message_id?: number }, { message_id: number }>(
+	worker.tool<
+		{ chat_id: string; text: string; parse_mode?: string; disable_notification?: boolean; reply_to_message_id?: number; message_thread_id?: number },
+		{ message_id: number }
+	>(
 		"telegramSendMessage",
 		{
 			title: "Send Message",
-			description: "Send a text message to a chat.",
+			description:
+				"Send a text message to a chat. For forum topics, pass message_thread_id so the reply goes to the correct topic (not the default).",
 			schema: {
 				type: "object",
 				properties: {
@@ -20,29 +24,46 @@ export function registerMessagesTools(worker: Worker): void {
 					parse_mode: { type: "string", nullable: true, description: "HTML or Markdown" },
 					disable_notification: { type: "boolean", nullable: true },
 					reply_to_message_id: { type: "number", nullable: true },
+					message_thread_id: {
+						type: "number",
+						nullable: true,
+						description: "Forum topic ID. Required when replying in a forum – use Topic ID from the Notion page.",
+					},
 				},
 				required: ["chat_id", "text"],
 				additionalProperties: false,
-			} as JSONSchemaType<{ chat_id: string; text: string; parse_mode?: string; disable_notification?: boolean; reply_to_message_id?: number }>,
+			} as JSONSchemaType<{
+				chat_id: string;
+				text: string;
+				parse_mode?: string;
+				disable_notification?: boolean;
+				reply_to_message_id?: number;
+				message_thread_id?: number;
+			}>,
 			execute: async (input) => {
 				const token = getBotToken();
-				const msg = await telegramApi<{ message_id: number }>(token, "sendMessage", {
+				const params: Record<string, unknown> = {
 					chat_id: input.chat_id,
 					text: input.text,
 					parse_mode: input.parse_mode,
 					disable_notification: input.disable_notification,
 					reply_to_message_id: input.reply_to_message_id,
-				});
+				};
+				if (input.message_thread_id != null) params.message_thread_id = input.message_thread_id;
+				const msg = await telegramApi<{ message_id: number }>(token, "sendMessage", params);
 				return { message_id: msg.message_id };
 			},
 		},
 	);
 
-	worker.tool<{ chat_id: string; from_chat_id: string; message_id: number; disable_notification?: boolean }, { message_id: number }>(
+	worker.tool<
+		{ chat_id: string; from_chat_id: string; message_id: number; disable_notification?: boolean; message_thread_id?: number },
+		{ message_id: number }
+	>(
 		"telegramForwardMessage",
 		{
 			title: "Forward Message",
-			description: "Forward a message from one chat to another.",
+			description: "Forward a message from one chat to another. Pass message_thread_id for forum topics.",
 			schema: {
 				type: "object",
 				properties: {
@@ -50,28 +71,34 @@ export function registerMessagesTools(worker: Worker): void {
 					from_chat_id: { type: "string", description: "Source chat" },
 					message_id: { type: "number" },
 					disable_notification: { type: "boolean", nullable: true },
+					message_thread_id: { type: "number", nullable: true, description: "Forum topic ID" },
 				},
 				required: ["chat_id", "from_chat_id", "message_id"],
 				additionalProperties: false,
-			} as JSONSchemaType<{ chat_id: string; from_chat_id: string; message_id: number; disable_notification?: boolean }>,
+			} as JSONSchemaType<{ chat_id: string; from_chat_id: string; message_id: number; disable_notification?: boolean; message_thread_id?: number }>,
 			execute: async (input) => {
 				const token = getBotToken();
-				const msg = await telegramApi<{ message_id: number }>(token, "forwardMessage", {
+				const params: Record<string, unknown> = {
 					chat_id: input.chat_id,
 					from_chat_id: input.from_chat_id,
 					message_id: input.message_id,
 					disable_notification: input.disable_notification,
-				});
+				};
+				if (input.message_thread_id != null) params.message_thread_id = input.message_thread_id;
+				const msg = await telegramApi<{ message_id: number }>(token, "forwardMessage", params);
 				return { message_id: msg.message_id };
 			},
 		},
 	);
 
-	worker.tool<{ chat_id: string; from_chat_id: string; message_id: number; caption?: string; parse_mode?: string }, { message_id: number }>(
+	worker.tool<
+		{ chat_id: string; from_chat_id: string; message_id: number; caption?: string; parse_mode?: string; message_thread_id?: number },
+		{ message_id: number }
+	>(
 		"telegramCopyMessage",
 		{
 			title: "Copy Message",
-			description: "Copy a message to another chat (without forwarding link).",
+			description: "Copy a message to another chat (without forwarding link). Pass message_thread_id for forum topics.",
 			schema: {
 				type: "object",
 				properties: {
@@ -80,19 +107,22 @@ export function registerMessagesTools(worker: Worker): void {
 					message_id: { type: "number" },
 					caption: { type: "string", nullable: true },
 					parse_mode: { type: "string", nullable: true },
+					message_thread_id: { type: "number", nullable: true, description: "Forum topic ID" },
 				},
 				required: ["chat_id", "from_chat_id", "message_id"],
 				additionalProperties: false,
-			} as JSONSchemaType<{ chat_id: string; from_chat_id: string; message_id: number; caption?: string; parse_mode?: string }>,
+			} as JSONSchemaType<{ chat_id: string; from_chat_id: string; message_id: number; caption?: string; parse_mode?: string; message_thread_id?: number }>,
 			execute: async (input) => {
 				const token = getBotToken();
-				const msg = await telegramApi<{ message_id: number }>(token, "copyMessage", {
+				const params: Record<string, unknown> = {
 					chat_id: input.chat_id,
 					from_chat_id: input.from_chat_id,
 					message_id: input.message_id,
 					caption: input.caption,
 					parse_mode: input.parse_mode,
-				});
+				};
+				if (input.message_thread_id != null) params.message_thread_id = input.message_thread_id;
+				const msg = await telegramApi<{ message_id: number }>(token, "copyMessage", params);
 				return { message_id: msg.message_id };
 			},
 		},
@@ -149,11 +179,11 @@ export function registerMessagesTools(worker: Worker): void {
 		},
 	);
 
-	worker.tool<{ chat_id: string; action: string }, { ok: boolean }>(
+	worker.tool<{ chat_id: string; action: string; message_thread_id?: number }, { ok: boolean }>(
 		"telegramSendChatAction",
 		{
 			title: "Send Chat Action",
-			description: "Send a chat action (typing, upload_photo, record_video, etc.) to show the bot is working.",
+			description: "Send a chat action (typing, upload_photo, etc.) to show the bot is working. Pass message_thread_id for forum topics.",
 			schema: {
 				type: "object",
 				properties: {
@@ -162,13 +192,16 @@ export function registerMessagesTools(worker: Worker): void {
 						type: "string",
 						description: "typing, upload_photo, record_video, upload_video, record_voice, upload_voice, upload_document, choose_sticker, find_location, record_video_note, upload_video_note",
 					},
+					message_thread_id: { type: "number", nullable: true, description: "Forum topic ID" },
 				},
 				required: ["chat_id", "action"],
 				additionalProperties: false,
-			} as JSONSchemaType<{ chat_id: string; action: string }>,
+			} as JSONSchemaType<{ chat_id: string; action: string; message_thread_id?: number }>,
 			execute: async (input) => {
 				const token = getBotToken();
-				await telegramApi<boolean>(token, "sendChatAction", { chat_id: input.chat_id, action: input.action });
+				const params: Record<string, unknown> = { chat_id: input.chat_id, action: input.action };
+				if (input.message_thread_id != null) params.message_thread_id = input.message_thread_id;
+				await telegramApi<boolean>(token, "sendChatAction", params);
 				return { ok: true };
 			},
 		},
