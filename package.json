@@ -4,9 +4,14 @@
   "description": "Experimental Notion worker that fetches page content and returns AI-generated summaries",
   "type": "module",
   "scripts": {
+    "build": "tsc",
     "check": "tsc --noEmit",
     "dev": "workers dev",
     "deploy": "workers deploy"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.9.2"
   },
   "keywords": [
     "notion",
@@ -17,6 +22,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@project-ajax/cli": "^0.0.27",
+    "@project-ajax/create": "^0.0.42",
     "@project-ajax/sdk": "*"
   },
   "devDependencies": {
