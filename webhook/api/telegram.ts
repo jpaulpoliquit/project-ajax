@@ -2,7 +2,7 @@
  * Vercel serverless function: receives Telegram webhook, creates Notion pages.
  * Set webhook: npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
  *
- * Env: NOTION_API_TOKEN, TELEGRAM_BOT_TOKEN (for confirmation reply), NOTION_DATABASE_ID
+ * Env: NOTION_API_TOKEN, TELEGRAM_BOT_TOKEN (for 👀 reaction ack), NOTION_DATABASE_ID
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,13 +40,17 @@ function getMessage(msg: Record<string, unknown>): { text: string; chat: { id: n
 
 export const config = { api: { bodyParser: true } };
 
-async function sendTelegramReply(chatId: number, text: string): Promise<void> {
+async function setMessageReaction(chatId: number, messageId: number): Promise<void> {
 	const token = process.env.TELEGRAM_BOT_TOKEN;
 	if (!token) return;
-	await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+	await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ chat_id: chatId, text }),
+		body: JSON.stringify({
+			chat_id: chatId,
+			message_id: messageId,
+			reaction: [{ type: "emoji", emoji: "👀" }],
+		}),
 	});
 }
 
@@ -128,7 +132,7 @@ ${text}${fileSummary}`;
 		});
 
 		// Send immediate confirmation so user knows it worked
-		await sendTelegramReply(chat.id, "✓ Received — creating entry in Notion. The agent will process it shortly.");
+		await setMessageReaction(chat.id, message_id);
 	} catch (err) {
 		console.error("Notion create failed:", err);
 		return res.status(500).json({

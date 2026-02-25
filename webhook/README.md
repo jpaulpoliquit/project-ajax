@@ -6,20 +6,23 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
 
 ## Deploy to Vercel
 
+**Vercel Root Directory must be `webhook/`** — Vercel only looks at this folder.
+
 1. **Install Vercel CLI** (if needed):
    ```bash
    npm i -g vercel
    ```
 
-2. **Deploy from the webhook folder**:
+2. **In Vercel project settings** → General → **Root Directory**: set to `webhook`
+
+3. **Deploy** (from repo root; Vercel will use webhook/ as root):
    ```bash
-   cd webhook
    vercel
    ```
 
 3. **Set environment variables** in Vercel dashboard (Settings → Environment Variables):
    - `NOTION_API_TOKEN` – your Notion integration token
-   - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables "✓ Received" confirmation reply)
+   - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables 👀 emoji reaction as ack)
    - `NOTION_DATABASE_ID` – optional, default: `312009f00c208036be25c17b44b2c667`
 
 4. **Share the Notion database** with your integration (Share → Invite → your integration).
