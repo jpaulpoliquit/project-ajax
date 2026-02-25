@@ -2,7 +2,7 @@
  * Vercel serverless function: receives Telegram webhook, creates Notion pages.
  * Set webhook: npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
  *
- * Env: TELEGRAM_BOT_TOKEN, NOTION_API_TOKEN, NOTION_DATABASE_ID
+ * Env: NOTION_API_TOKEN, TELEGRAM_BOT_TOKEN (for confirmation reply), NOTION_DATABASE_ID
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +40,16 @@ function getMessage(msg: Record<string, unknown>): { text: string; chat: { id: n
 
 export const config = { api: { bodyParser: true } };
 
+async function sendTelegramReply(chatId: number, text: string): Promise<void> {
+	const token = process.env.TELEGRAM_BOT_TOKEN;
+	if (!token) return;
+	await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ chat_id: chatId, text }),
+	});
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 	if (req.method !== "POST") {
 		return res.status(404).send("Not Found");
@@ -53,8 +63,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		return res.status(500).json({ ok: false, error: "Server misconfigured" });
 	}
 
-	const body = req.body as Record<string, unknown> | undefined;
-	const update = body ?? {};
+	// Handle both parsed body and raw string (Telegram sends JSON)
+	let body: Record<string, unknown>;
+	if (typeof req.body === "string") {
+		try {
+			body = JSON.parse(req.body) as Record<string, unknown>;
+		} catch {
+			return res.status(400).json({ ok: false, error: "Invalid JSON" });
+		}
+	} else {
+		body = (req.body as Record<string, unknown>) ?? {};
+	}
+	const update = body;
 	const msg = (update.message ?? update.channel_post ?? update.edited_message) as Record<string, unknown> | undefined;
 
 	if (!msg || typeof msg !== "object") {
@@ -106,6 +126,9 @@ ${text}${fileSummary}`;
 				},
 			],
 		});
+
+		// Send immediate confirmation so user knows it worked
+		await sendTelegramReply(chat.id, "✓ Received — creating entry in Notion. The agent will process it shortly.");
 	} catch (err) {
 		console.error("Notion create failed:", err);
 		return res.status(500).json({

@@ -19,6 +19,7 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
 
 3. **Set environment variables** in Vercel dashboard (Settings → Environment Variables):
    - `NOTION_API_TOKEN` – your Notion integration token
+   - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables "✓ Received" confirmation reply)
    - `NOTION_DATABASE_ID` – optional, default: `312009f00c208036be25c17b44b2c667`
 
 4. **Share the Notion database** with your integration (Share → Invite → your integration).
