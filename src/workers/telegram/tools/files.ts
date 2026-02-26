@@ -28,7 +28,7 @@ export function registerFilesTools(worker: Worker): void {
 		},
 	);
 
-	worker.tool<{ chat_id: string; limit?: number }, { files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; type: string; message_id: number }> }>(
+	worker.tool<{ chat_id: string; limit?: number }, { files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string; type: string; message_id: number }> }>(
 		"telegramListChatFiles",
 		{
 			title: "List Chat Files",
@@ -51,7 +51,7 @@ export function registerFilesTools(worker: Worker): void {
 					{ limit, allowed_updates: ["message", "channel_post"] },
 				);
 				const chatId = input.chat_id;
-				const files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; type: string; message_id: number }> = [];
+				const files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string; type: string; message_id: number }> = [];
 				for (const u of result || []) {
 					const msg = u.message;
 					if (!msg || String(msg.chat.id) !== chatId) continue;

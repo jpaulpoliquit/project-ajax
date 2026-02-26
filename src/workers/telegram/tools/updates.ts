@@ -18,7 +18,7 @@ export function registerUpdatesTools(worker: Worker): void {
 		text?: string;
 		caption?: string;
 		date?: number;
-		files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; type: string }>;
+		files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string; type: string }>;
 	};
 
 	worker.tool<{ limit?: number; offset?: number; allowed_updates?: string[] }, { updates: UpdateItem[] }>(
@@ -53,14 +53,14 @@ export function registerUpdatesTools(worker: Worker): void {
 						caption?: string;
 						date?: number;
 						chat: { id: number; title?: string; type?: string };
-						document?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
+						document?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
 						photo?: Array<{ file_id: string; file_unique_id: string; file_size?: number }>;
-						video?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						audio?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						voice?: { file_id: string; file_unique_id: string; file_size?: number };
-						video_note?: { file_id: string; file_unique_id: string; file_size?: number };
-						animation?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						sticker?: { file_id: string; file_unique_id: string; file_size?: number };
+						video?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
+						audio?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
+						voice?: { file_id: string; file_unique_id: string; file_size?: number; mime_type?: string };
+						video_note?: { file_id: string; file_unique_id: string; file_size?: number; mime_type?: string };
+						animation?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
+						sticker?: { file_id: string; file_unique_id: string; file_size?: number; mime_type?: string };
 					};
 					channel_post?: { message_id: number; message_thread_id?: number; text?: string; caption?: string; date?: number; chat: { id: number; title?: string; type?: string }; document?: unknown; photo?: unknown; video?: unknown };
 					edited_message?: { message_id: number; message_thread_id?: number; text?: string; chat: { id: number; title?: string } };
@@ -113,25 +113,34 @@ export function registerUpdatesTools(worker: Worker): void {
 		},
 	);
 
-	worker.tool<{ url: string; drop_pending_updates?: boolean }, { ok: boolean }>(
+	worker.tool<{ url: string; drop_pending_updates?: boolean; secret_token?: string }, { ok: boolean }>(
 		"telegramSetWebhook",
 		{
 			title: "Set Webhook",
-			description: "Set webhook URL to receive updates via HTTPS POST. Use empty string to remove.",
+			description: "Set webhook URL to receive updates via HTTPS POST. Supports optional secret_token for request verification.",
 			schema: {
 				type: "object",
 				properties: {
 					url: { type: "string", description: "HTTPS URL for webhook, or empty to remove" },
 					drop_pending_updates: { type: "boolean", nullable: true, description: "Drop pending updates" },
+					secret_token: {
+						type: "string",
+						nullable: true,
+						description: "Optional webhook secret token (1-256 chars). Telegram sends it in X-Telegram-Bot-Api-Secret-Token header.",
+					},
 				},
 				required: ["url"],
 				additionalProperties: false,
-			} as JSONSchemaType<{ url: string; drop_pending_updates?: boolean }>,
+			} as JSONSchemaType<{ url: string; drop_pending_updates?: boolean; secret_token?: string }>,
 			execute: async (input) => {
 				const token = getBotToken();
+				if (input.secret_token && input.secret_token.length > 256) {
+					throw new Error("secret_token must be 1-256 characters");
+				}
 				await telegramApi<boolean>(token, "setWebhook", {
 					url: input.url,
 					drop_pending_updates: input.drop_pending_updates,
+					secret_token: input.secret_token,
 				});
 				return { ok: true };
 			},

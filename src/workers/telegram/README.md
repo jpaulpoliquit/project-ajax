@@ -46,6 +46,7 @@ Use `telegramIngestToNotion` when the Custom Agent runs on a schedule (e.g. ever
 2. **Set secrets**: `TELEGRAM_BOT_TOKEN`, `NOTION_API_TOKEN`
 3. **Agent triggers**: Recurring (every 5 min) + Page added to database
 4. **Instructions**: Call `telegramIngestToNotion` on schedule; process new pages when triggered
+5. **Optional secret**: `TELEGRAM_NOTION_MAX_FILE_BYTES` to cap uploaded Telegram attachment size (default: `104857600` / 100 MB)
 
 ### Tool: telegramIngestToNotion
 
@@ -56,6 +57,12 @@ Use `telegramIngestToNotion` when the Custom Agent runs on a schedule (e.g. ever
 | `offset` | number | getUpdates offset to skip already-processed messages |
 
 Returns `{ created, pages, last_offset }`. Use `last_offset` on the next run to avoid duplicates.
+
+### Attachment upload behavior
+
+- Incoming Telegram attachments (document/photo/video/audio/voice/video_note/animation/sticker) are uploaded directly to Notion via the File Upload API.
+- Upload outcomes are written back into each page as JSON state (`uploaded`, `failed`, or `skipped` with reason).
+- Successfully uploaded files are appended as Notion file blocks (`image`, `video`, `audio`, `pdf`, or `file`) so downstream agents can read them.
 
 ## File Identification
 
@@ -79,9 +86,9 @@ Use `telegramGetFile` with `file_id` to get the download URL (valid ~1 hour).
 |------|-------------|
 | `telegramGetUpdates` | Fetch recent updates using the history bot (`TELEGRAM_HISTORY_BOT_TOKEN`). Use this when the main bot has webhook active. |
 | `telegramGetWebhookInfo` | Get current webhook status |
-| `telegramSetWebhook` | Set webhook URL for receiving updates via HTTPS |
+| `telegramSetWebhook` | Set webhook URL for receiving updates via HTTPS (supports `secret_token` for request verification) |
 | `telegramDeleteWebhook` | Remove webhook (⚠️ do not use when webhook ingestion is active) |
-| `telegramIngestToNotion` | Fetch updates and create Notion pages (triggers agents) |
+| `telegramIngestToNotion` | Fetch updates, create Notion pages, and upload Telegram attachments to Notion file blocks |
 
 ### Files
 
