@@ -20,23 +20,24 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
    vercel
    ```
 
-3. **Set environment variables** in Vercel dashboard (Settings → Environment Variables):
+4. **Set environment variables** in Vercel dashboard (Settings → Environment Variables):
    - `NOTION_API_TOKEN` – your Notion integration token
    - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables 👀 emoji reaction as ack)
    - `NOTION_DATABASE_ID` – optional, default: `312009f00c208036be25c17b44b2c667`
+   - `TELEGRAM_NOTION_MAX_FILE_BYTES` – optional max Telegram attachment size to upload to Notion (default: `104857600` / 100 MB)
 
-4. **Share the Notion database** with your integration (Share → Invite → your integration).
+5. **Share the Notion database** with your integration (Share → Invite → your integration).
 
-5. **For topic summarization** (reading full message history): The webhook blocks getUpdates on the main bot. Use a **history bot** – see [src/workers/telegram/README.md](../src/workers/telegram/README.md) "Reading message history while webhook is active". Set `TELEGRAM_HISTORY_BOT_TOKEN` in the worker secrets. `telegramGetUpdates` uses this token.
+6. **For topic summarization** (reading full message history): The webhook blocks getUpdates on the main bot. Use a **history bot** – see [src/workers/telegram/README.md](../src/workers/telegram/README.md) "Reading message history while webhook is active". Set `TELEGRAM_HISTORY_BOT_TOKEN` in the worker secrets. `telegramGetUpdates` uses this token.
 
-6. **Optional:** Add filterable properties (Chat ID, Topic ID) to the Notion database for agent queries.
+7. **Optional:** Add filterable properties (Chat ID, Topic ID) to the Notion database for agent queries.
 
-7. **Register the webhook** with Telegram:
+8. **Register the webhook** with Telegram:
    ```bash
    npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
    ```
 
-8. **Delete webhook** to switch back to polling:
+9. **Delete webhook** to switch back to polling:
    ```bash
    npx workers exec telegramDeleteWebhook -d '{}'
    ```
@@ -58,9 +59,10 @@ To receive all messages (including @mentions), disable privacy mode:
 
 1. User sends message in Telegram
 2. Telegram POSTs to your webhook URL
-3. Webhook creates a Notion page in the database
-4. Custom Agent triggers (Page added to database)
-5. Agent processes the page and can reply via `telegramSendMessage`
+3. Webhook creates a Notion page in the database and stores Telegram state JSON
+4. Attachments are uploaded directly to Notion File Upload API and appended as file/image/video/audio/pdf blocks
+5. Custom Agent triggers (Page added to database)
+6. Agent processes the page and can reply via `telegramSendMessage`
 
 ## Custom Agent setup
 

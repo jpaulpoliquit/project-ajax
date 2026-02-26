@@ -18,7 +18,7 @@ export function registerUpdatesTools(worker: Worker): void {
 		text?: string;
 		caption?: string;
 		date?: number;
-		files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; type: string }>;
+		files: Array<{ file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string; type: string }>;
 	};
 
 	worker.tool<{ limit?: number; offset?: number; allowed_updates?: string[] }, { updates: UpdateItem[] }>(
@@ -53,14 +53,14 @@ export function registerUpdatesTools(worker: Worker): void {
 						caption?: string;
 						date?: number;
 						chat: { id: number; title?: string; type?: string };
-						document?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
+						document?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
 						photo?: Array<{ file_id: string; file_unique_id: string; file_size?: number }>;
-						video?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						audio?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						voice?: { file_id: string; file_unique_id: string; file_size?: number };
-						video_note?: { file_id: string; file_unique_id: string; file_size?: number };
-						animation?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string };
-						sticker?: { file_id: string; file_unique_id: string; file_size?: number };
+						video?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
+						audio?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
+						voice?: { file_id: string; file_unique_id: string; file_size?: number; mime_type?: string };
+						video_note?: { file_id: string; file_unique_id: string; file_size?: number; mime_type?: string };
+						animation?: { file_id: string; file_unique_id: string; file_size?: number; file_name?: string; mime_type?: string };
+						sticker?: { file_id: string; file_unique_id: string; file_size?: number; mime_type?: string };
 					};
 					channel_post?: { message_id: number; message_thread_id?: number; text?: string; caption?: string; date?: number; chat: { id: number; title?: string; type?: string }; document?: unknown; photo?: unknown; video?: unknown };
 					edited_message?: { message_id: number; message_thread_id?: number; text?: string; chat: { id: number; title?: string } };
