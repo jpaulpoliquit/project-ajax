@@ -330,16 +330,21 @@ function timingSafeStringEquals(a: string, b: string): boolean {
 	return diff === 0;
 }
 
+function isTrueEnvFlag(value: string | undefined): boolean {
+	if (!value) return false;
+	return /^(1|true|yes|on)$/i.test(value.trim());
+}
+
 function assertNonEmptyString(value: unknown, field: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
 		throw new Error(`Notion API response missing ${field}`);
 	}
 }
 
-function isAuthorizedTelegramWebhookRequest(secretHeader: string | null): boolean {
+function isAuthorizedTelegramWebhookRequest(secretHeader: string | null, requireSecret: boolean): boolean {
 	const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
 	if (!expectedSecret) return true;
-	if (!secretHeader) return false;
+	if (!secretHeader) return !requireSecret;
 	return timingSafeStringEquals(secretHeader, expectedSecret);
 }
 
@@ -574,8 +579,16 @@ export async function handle(request: Request): Promise<Response> {
 		return new Response("Not Found", { status: 404 });
 	}
 
+	const requireSecret = isTrueEnvFlag(process.env.TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN);
+	if (requireSecret && !process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN) {
+		return new Response(JSON.stringify({ ok: false, error: "Server misconfigured: TELEGRAM_WEBHOOK_SECRET_TOKEN is required when TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN=true" }), {
+			status: 500,
+			headers: { "Content-Type": "application/json" },
+		});
+	}
+
 	const secretHeader = request.headers.get(TELEGRAM_SECRET_HEADER);
-	if (!isAuthorizedTelegramWebhookRequest(secretHeader)) {
+	if (!isAuthorizedTelegramWebhookRequest(secretHeader, requireSecret)) {
 		return new Response(JSON.stringify({ ok: false, error: "Unauthorized webhook request" }), {
 			status: 401,
 			headers: { "Content-Type": "application/json" },

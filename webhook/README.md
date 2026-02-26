@@ -25,7 +25,8 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
    - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables 👀 emoji reaction as ack)
    - `NOTION_DATABASE_ID` – optional, default: `312009f00c208036be25c17b44b2c667`
    - `TELEGRAM_NOTION_MAX_FILE_BYTES` – optional max Telegram attachment size to upload to Notion (default: `104857600` / 100 MB)
-   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` – required for request verification (set a long random secret)
+   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` – optional for now; strongly recommended to verify incoming webhook requests
+   - `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN` – optional (`true|false`, default `false`). Set to `true` later when you want to enforce strict secret verification.
 
 5. **Share the Notion database** with your integration (Share → Invite → your integration).
 
@@ -35,10 +36,14 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
 
 8. **Register the webhook** with Telegram:
    ```bash
-   npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram","secret_token":"<same-secret-as-TELEGRAM_WEBHOOK_SECRET_TOKEN>"}'
+   npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
    ```
 
-   Telegram includes this value in `X-Telegram-Bot-Api-Secret-Token`, and the webhook rejects requests when it does not match.
+   Optional hardened mode:
+   ```bash
+   npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram","secret_token":"<same-secret-as-TELEGRAM_WEBHOOK_SECRET_TOKEN>"}'
+   ```
+   When `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN=true`, the webhook rejects requests whose `X-Telegram-Bot-Api-Secret-Token` does not match.
 
 9. **Delete webhook** to switch back to polling:
    ```bash
