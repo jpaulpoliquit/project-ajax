@@ -86,7 +86,7 @@ Use `telegramGetFile` with `file_id` to get the download URL (valid ~1 hour).
 |------|-------------|
 | `telegramGetUpdates` | Fetch recent updates using the history bot (`TELEGRAM_HISTORY_BOT_TOKEN`). Use this when the main bot has webhook active. |
 | `telegramGetWebhookInfo` | Get current webhook status |
-| `telegramSetWebhook` | Set webhook URL for receiving updates via HTTPS |
+| `telegramSetWebhook` | Set webhook URL for receiving updates via HTTPS (supports `secret_token` for request verification) |
 | `telegramDeleteWebhook` | Remove webhook (⚠️ do not use when webhook ingestion is active) |
 | `telegramIngestToNotion` | Fetch updates, create Notion pages, and upload Telegram attachments to Notion file blocks |
 

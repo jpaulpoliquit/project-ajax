@@ -113,25 +113,34 @@ export function registerUpdatesTools(worker: Worker): void {
 		},
 	);
 
-	worker.tool<{ url: string; drop_pending_updates?: boolean }, { ok: boolean }>(
+	worker.tool<{ url: string; drop_pending_updates?: boolean; secret_token?: string }, { ok: boolean }>(
 		"telegramSetWebhook",
 		{
 			title: "Set Webhook",
-			description: "Set webhook URL to receive updates via HTTPS POST. Use empty string to remove.",
+			description: "Set webhook URL to receive updates via HTTPS POST. Supports optional secret_token for request verification.",
 			schema: {
 				type: "object",
 				properties: {
 					url: { type: "string", description: "HTTPS URL for webhook, or empty to remove" },
 					drop_pending_updates: { type: "boolean", nullable: true, description: "Drop pending updates" },
+					secret_token: {
+						type: "string",
+						nullable: true,
+						description: "Optional webhook secret token (1-256 chars). Telegram sends it in X-Telegram-Bot-Api-Secret-Token header.",
+					},
 				},
 				required: ["url"],
 				additionalProperties: false,
-			} as JSONSchemaType<{ url: string; drop_pending_updates?: boolean }>,
+			} as JSONSchemaType<{ url: string; drop_pending_updates?: boolean; secret_token?: string }>,
 			execute: async (input) => {
 				const token = getBotToken();
+				if (input.secret_token && input.secret_token.length > 256) {
+					throw new Error("secret_token must be 1-256 characters");
+				}
 				await telegramApi<boolean>(token, "setWebhook", {
 					url: input.url,
 					drop_pending_updates: input.drop_pending_updates,
+					secret_token: input.secret_token,
 				});
 				return { ok: true };
 			},

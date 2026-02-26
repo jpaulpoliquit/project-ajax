@@ -13,6 +13,7 @@ const NOTION_API_VERSION = process.env.NOTION_API_VERSION ?? "2025-09-03";
 const NOTION_SINGLE_PART_UPLOAD_BYTES = 20 * 1024 * 1024;
 const DEFAULT_TELEGRAM_NOTION_MAX_FILE_BYTES = 100 * 1024 * 1024;
 const NOTION_BLOCK_APPEND_BATCH_SIZE = 100;
+const TELEGRAM_SECRET_HEADER = "x-telegram-bot-api-secret-token";
 
 type FileInfo = {
 	file_id: string;
@@ -318,6 +319,30 @@ function parseNotionError(body: string): string {
 	}
 }
 
+function timingSafeStringEquals(a: string, b: string): boolean {
+	const aBytes = new TextEncoder().encode(a);
+	const bBytes = new TextEncoder().encode(b);
+	const len = Math.max(aBytes.length, bBytes.length);
+	let diff = aBytes.length ^ bBytes.length;
+	for (let i = 0; i < len; i++) {
+		diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+	}
+	return diff === 0;
+}
+
+function assertNonEmptyString(value: unknown, field: string): asserts value is string {
+	if (typeof value !== "string" || value.trim().length === 0) {
+		throw new Error(`Notion API response missing ${field}`);
+	}
+}
+
+function isAuthorizedTelegramWebhookRequest(secretHeader: string | null): boolean {
+	const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
+	if (!expectedSecret) return true;
+	if (!secretHeader) return false;
+	return timingSafeStringEquals(secretHeader, expectedSecret);
+}
+
 async function notionJsonRequest<T>(
 	notionToken: string,
 	path: string,
@@ -482,6 +507,7 @@ async function uploadTelegramFileToNotion(
 				: { mode: "single_part", filename, content_type: mimeType };
 
 		const created = await notionJsonRequest<{ id: string }>(notionToken, "file_uploads", "POST", createPayload);
+		assertNonEmptyString(created.id, "file_upload.id");
 
 		for (let part = 0; part < numberOfParts; part++) {
 			const start = part * NOTION_SINGLE_PART_UPLOAD_BYTES;
@@ -548,6 +574,14 @@ export async function handle(request: Request): Promise<Response> {
 		return new Response("Not Found", { status: 404 });
 	}
 
+	const secretHeader = request.headers.get(TELEGRAM_SECRET_HEADER);
+	if (!isAuthorizedTelegramWebhookRequest(secretHeader)) {
+		return new Response(JSON.stringify({ ok: false, error: "Unauthorized webhook request" }), {
+			status: 401,
+			headers: { "Content-Type": "application/json" },
+		});
+	}
+
 	const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
 	const notionToken = process.env.NOTION_API_TOKEN;
 	const databaseId = process.env.NOTION_DATABASE_ID ?? "312009f00c208036be25c17b44b2c667";
@@ -568,6 +602,12 @@ export async function handle(request: Request): Promise<Response> {
 	}
 
 	const update = body;
+	if (typeof update.update_id !== "number") {
+		return new Response(JSON.stringify({ ok: false, error: "Invalid Telegram update payload" }), {
+			status: 400,
+			headers: { "Content-Type": "application/json" },
+		});
+	}
 	const msg = (update.message ?? update.channel_post ?? update.edited_message) as Record<string, unknown> | undefined;
 	const updateId = typeof update.update_id === "number" ? (update.update_id as number) : undefined;
 	if (!msg || typeof msg !== "object") {
@@ -663,6 +703,7 @@ ${text}${fileSummary}`;
 				buildJsonCodeBlock(baseState),
 			] as unknown as Parameters<typeof notion.pages.create>[0]["children"],
 		});
+		assertNonEmptyString(page.id, "page.id");
 
 		if (files.length > 0) {
 			const uploadStates: AttachmentUploadState[] = [];
