@@ -493,12 +493,22 @@ export function registerNotionIngestTools(worker: Worker): void {
 
 				// Fetch database schema to get title property name
 				const db = await notionClient.databases.retrieve({ database_id: dbId });
-				const titleProp = getTitlePropertyName(db.properties as Record<string, { type?: string }>);
-				const props = db.properties as Record<string, { type?: string }>;
+				const props = db.properties as Record<string, { type?: string; status?: { options?: { name: string }[] } }>;
+				const titleProp = getTitlePropertyName(props);
 				const chatIdProp = findPropertyName(props, "number", ["Chat ID", "Telegram Chat ID"]);
 				const topicIdProp = findPropertyName(props, "number", ["Topic ID", "Telegram Topic ID", "Thread ID", "Message Thread ID"]);
 				const messageIdProp = findPropertyName(props, "number", ["Message ID", "Telegram Message ID"]);
 				const updateIdProp = findPropertyName(props, "number", ["Update ID", "Telegram Update ID"]);
+				let statusProp: string | null = null;
+				let statusNotStarted: string | null = null;
+
+				for (const [name, prop] of Object.entries(props)) {
+					if (prop?.type !== "status") continue;
+					statusProp = name;
+					const opts = prop?.status?.options;
+					const notStarted = opts?.find((o) => /not\s*started/i.test(o.name));
+					statusNotStarted = notStarted?.name ?? opts?.[0]?.name ?? null;
+				}
 
 				// Fetch Telegram updates
 				const result = await telegramApi<TelegramUpdate[]>(token, "getUpdates", {
@@ -578,6 +588,7 @@ ${text}${fileSummary}`.trim();
 					if (topicIdProp && messageThreadId != null) pageProps[topicIdProp] = { number: messageThreadId };
 					if (messageIdProp) pageProps[messageIdProp] = { number: msg.message_id };
 					if (updateIdProp) pageProps[updateIdProp] = { number: u.update_id };
+					if (statusProp && statusNotStarted) pageProps[statusProp] = { status: { name: statusNotStarted } };
 
 					const page = await notionClient.pages.create({
 						parent: { database_id: dbId },
@@ -628,7 +639,7 @@ ${text}${fileSummary}`.trim();
 
 						if (notionToken && uploadedBlocks.length > 0) {
 							try {
-								await appendBlocksViaNotionApi(notionToken, page.id, uploadedBlocks);
+								await appendBlocksViaClient(notionClient, page.id, uploadedBlocks);
 							} catch (err) {
 								await appendBlocksViaClient(notionClient, page.id, [
 									buildJsonCodeBlock({

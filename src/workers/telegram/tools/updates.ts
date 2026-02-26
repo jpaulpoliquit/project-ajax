@@ -134,13 +134,16 @@ export function registerUpdatesTools(worker: Worker): void {
 			} as JSONSchemaType<{ url: string; drop_pending_updates?: boolean; secret_token?: string }>,
 			execute: async (input) => {
 				const token = getBotToken();
-				if (input.secret_token && input.secret_token.length > 256) {
-					throw new Error("secret_token must be 1-256 characters");
+				if (input.secret_token != null) {
+					const length = input.secret_token.length;
+					if (length < 1 || length > 256) {
+						throw new Error("secret_token must be 1-256 characters");
+					}
 				}
 				await telegramApi<boolean>(token, "setWebhook", {
 					url: input.url,
 					drop_pending_updates: input.drop_pending_updates,
-					secret_token: input.secret_token,
+					...(input.secret_token ? { secret_token: input.secret_token } : {}),
 				});
 				return { ok: true };
 			},
