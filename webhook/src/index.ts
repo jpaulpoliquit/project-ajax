@@ -350,7 +350,8 @@ async function notionSendFileUploadPart(
 	partNumber?: number,
 ): Promise<void> {
 	const formData = new FormData();
-	formData.append("file", new Blob([bytes], { type: mimeType }), filename);
+	const blobBytes = new Uint8Array(bytes);
+	formData.append("file", new Blob([blobBytes], { type: mimeType }), filename);
 	if (partNumber != null) {
 		formData.append("part_number", String(partNumber));
 	}
