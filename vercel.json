@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "api/telegram.ts": {
-      "memory": 128,
-      "maxDuration": 10
-    }
-  }
-}
