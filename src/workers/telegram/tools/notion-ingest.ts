@@ -113,7 +113,8 @@ function formatDatabaseId(id: string): string {
 	return `${clean.slice(0, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}-${clean.slice(16, 20)}-${clean.slice(20, 32)}`;
 }
 
-function getTitlePropertyName(properties: Record<string, { type?: string }>): string {
+function getTitlePropertyName(properties: Record<string, { type?: string }> | null | undefined): string {
+	if (!properties || typeof properties !== "object") return "Name";
 	for (const [name, prop] of Object.entries(properties)) {
 		if (prop?.type === "title") return name;
 	}
@@ -230,16 +231,56 @@ function normalizeName(name: string): string {
 }
 
 function findPropertyName(
-	properties: Record<string, { type?: string }>,
+	properties: Record<string, { type?: string }> | null | undefined,
 	type: string,
 	candidates: string[],
 ): string | null {
 	const wanted = new Set(candidates.map(normalizeName));
+	if (!properties || typeof properties !== "object") return null;
 	for (const [name, prop] of Object.entries(properties)) {
 		if (prop?.type !== type) continue;
 		if (wanted.has(normalizeName(name))) return name;
 	}
 	return null;
+}
+
+function numberEqualsFilter(property: string, value: number): Record<string, unknown> {
+	return {
+		property,
+		number: { equals: value },
+	};
+}
+
+async function hasExistingTelegramPage(
+	notion: Client,
+	databaseId: string,
+	input: {
+		updateIdProp: string | null;
+		updateId: number;
+		chatIdProp: string | null;
+		chatId: number;
+		messageIdProp: string | null;
+		messageId: number;
+	},
+): Promise<boolean> {
+	let filter: Record<string, unknown> | null = null;
+	if (input.updateIdProp) {
+		filter = numberEqualsFilter(input.updateIdProp, input.updateId);
+	} else if (input.chatIdProp && input.messageIdProp) {
+		filter = {
+			and: [
+				numberEqualsFilter(input.chatIdProp, input.chatId),
+				numberEqualsFilter(input.messageIdProp, input.messageId),
+			],
+		};
+	}
+	if (!filter) return false;
+	const query = await notion.databases.query({
+		database_id: databaseId,
+		page_size: 1,
+		filter: filter as Parameters<Client["databases"]["query"]>[0]["filter"],
+	});
+	return query.results.length > 0;
 }
 
 function parseNotionError(body: string): string {
@@ -574,6 +615,18 @@ ${text}${fileSummary}`.trim();
 							title: [{ type: "text", text: { content: title } }],
 						},
 					};
+					const pageAlreadyExists = await hasExistingTelegramPage(notionClient, dbId, {
+						updateIdProp,
+						updateId: u.update_id,
+						chatIdProp,
+						chatId: chat.id,
+						messageIdProp,
+						messageId: msg.message_id,
+					});
+					if (pageAlreadyExists) {
+						lastOffset = u.update_id + 1;
+						continue;
+					}
 					if (chatIdProp) pageProps[chatIdProp] = { number: chat.id };
 					if (topicIdProp && messageThreadId != null) pageProps[topicIdProp] = { number: messageThreadId };
 					if (messageIdProp) pageProps[messageIdProp] = { number: msg.message_id };
