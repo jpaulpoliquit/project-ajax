@@ -243,8 +243,9 @@ function extensionFromMime(mime?: string): string | undefined {
 
 function inferMimeType(file: FileInfo, responseMimeType: string | null, filePath?: string): string {
 	const responseMime = responseMimeType?.split(";")[0]?.trim().toLowerCase();
-	if (file.mime_type) return file.mime_type;
-	if (responseMime) return responseMime;
+	const usable = (m: string | undefined) => m && m.toLowerCase() !== "application/octet-stream";
+	if (usable(file.mime_type)) return file.mime_type!;
+	if (usable(responseMime)) return responseMime!;
 	const fromName = mimeFromExtension(extensionFromName(file.file_name));
 	if (fromName) return fromName;
 	const fromPath = mimeFromExtension(extensionFromName(filePath));
