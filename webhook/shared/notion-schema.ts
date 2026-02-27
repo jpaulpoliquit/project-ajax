@@ -27,10 +27,14 @@ function findPropertyName(
 	candidates: string[],
 ): string | null {
 	const wanted = new Set(candidates.map(normalizeName));
-	if (!properties || typeof properties !== "object") return null;
-	for (const [name, prop] of Object.entries(properties)) {
-		if (prop?.type !== type) continue;
-		if (wanted.has(normalizeName(name))) return name;
+	if (properties == null || typeof properties !== "object" || Array.isArray(properties)) return null;
+	try {
+		for (const [name, prop] of Object.entries(properties)) {
+			if (prop?.type !== type) continue;
+			if (wanted.has(normalizeName(name))) return name;
+		}
+	} catch {
+		return null;
 	}
 	return null;
 }
@@ -38,22 +42,26 @@ function findPropertyName(
 export function resolveTelegramNotionSchema(
 	properties: NotionPropertyMap | null | undefined,
 ): TelegramNotionSchema | null {
-	if (!properties || typeof properties !== "object") return null;
+	if (properties == null || typeof properties !== "object" || Array.isArray(properties)) return null;
 
 	let titleProp = "Name";
 	let statusProp: string | null = null;
 	let statusNotStarted: string | null = null;
 
-	for (const [name, prop] of Object.entries(properties)) {
-		const type = prop?.type;
-		if (type === "title") {
-			titleProp = name;
-		} else if (type === "status") {
-			statusProp = name;
-			const options = prop?.status?.options;
-			const notStarted = options?.find((option) => /not\s*started/i.test(option.name));
-			statusNotStarted = notStarted?.name ?? options?.[0]?.name ?? null;
+	try {
+		for (const [name, prop] of Object.entries(properties)) {
+			const type = prop?.type;
+			if (type === "title") {
+				titleProp = name;
+			} else if (type === "status") {
+				statusProp = name;
+				const options = prop?.status?.options;
+				const notStarted = options?.find((option) => /not\s*started/i.test(option.name));
+				statusNotStarted = notStarted?.name ?? options?.[0]?.name ?? null;
+			}
 		}
+	} catch {
+		return null;
 	}
 
 	return {
