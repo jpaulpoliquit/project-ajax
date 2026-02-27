@@ -10,7 +10,7 @@ type VercelRequest = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VercelResponse = any;
 import { Client } from "@notionhq/client";
-import { logNotionFailure, resolveTelegramNotionSchema } from "../shared/notion-schema";
+import { logNotionFailure, resolveTelegramNotionSchema } from "../shared/notion-schema.js";
 
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_API_VERSION = process.env.NOTION_API_VERSION ?? "2025-09-03";
