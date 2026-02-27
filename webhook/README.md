@@ -25,8 +25,8 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
    - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables 👀 emoji reaction as ack)
    - `NOTION_DATABASE_ID` – optional, default: `312009f00c208036be25c17b44b2c667`
    - `TELEGRAM_NOTION_MAX_FILE_BYTES` – optional max Telegram attachment size to upload to Notion (default: `104857600` / 100 MB)
-   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` – optional for now; strongly recommended to verify incoming webhook requests
-   - `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN` – optional (`true|false`, default `false`). Set to `true` later when you want to enforce strict secret verification.
+   - `TELEGRAM_WEBHOOK_SECRET_TOKEN` – **required for verification**. Must match the secret registered with Telegram.
+   - `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN` – set to `true` to enforce secret verification (reject requests without matching header).
 
 5. **Share the Notion database** with your integration (Share → Invite → your integration).
 
@@ -34,16 +34,15 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
 
 7. **Optional:** Add filterable properties (Chat ID, Topic ID) to the Notion database for agent queries.
 
-8. **Register the webhook** with Telegram:
+8. **Set webhook secret and register** with Telegram:
    ```bash
+   # Generate a secret and set in worker secrets (used when registering webhook)
+   npx workers secrets set TELEGRAM_WEBHOOK_SECRET_TOKEN=<your-secret> TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN=true
+
+   # Register webhook (uses TELEGRAM_WEBHOOK_SECRET_TOKEN from secrets automatically)
    npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
    ```
-
-   Optional hardened mode:
-   ```bash
-   npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram","secret_token":"<same-secret-as-TELEGRAM_WEBHOOK_SECRET_TOKEN>"}'
-   ```
-   When `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN=true`, the webhook rejects requests whose `X-Telegram-Bot-Api-Secret-Token` does not match.
+   Set the **same** `TELEGRAM_WEBHOOK_SECRET_TOKEN` and `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN=true` in Vercel env vars. Telegram sends the secret in the `X-Telegram-Bot-Api-Secret-Token` header; the webhook rejects mismatches when `TELEGRAM_WEBHOOK_REQUIRE_SECRET_TOKEN=true`.
 
 9. **Delete webhook** to switch back to polling:
    ```bash

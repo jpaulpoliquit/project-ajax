@@ -12,6 +12,34 @@ import { logNotionFailure, resolveTelegramNotionSchema } from "../shared/notion-
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_API_VERSION = process.env.NOTION_API_VERSION ?? "2025-09-03";
 const NOTION_SINGLE_PART_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+type NotionPropertyMap = Record<string, { type?: string; status?: { options?: { name: string }[] } }>;
+
+/** Fetch schema properties. In 2025-09-03, properties live on data sources, not databases. */
+async function getNotionSchemaProperties(
+	notionToken: string,
+	dbId: string,
+): Promise<NotionPropertyMap | null> {
+	const db = await fetch(`${NOTION_API_BASE}/databases/${dbId}`, {
+		headers: {
+			Authorization: `Bearer ${notionToken}`,
+			"Notion-Version": NOTION_API_VERSION,
+		},
+	}).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`databases.retrieve failed: ${r.status}`))));
+
+	const dataSources = db.data_sources as Array<{ id: string; name?: string }> | undefined;
+	if (Array.isArray(dataSources) && dataSources.length > 0) {
+		const dsId = dataSources[0].id;
+		const ds = await fetch(`${NOTION_API_BASE}/data_sources/${dsId}`, {
+			headers: {
+				Authorization: `Bearer ${notionToken}`,
+				"Notion-Version": NOTION_API_VERSION,
+			},
+		}).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`data_sources.retrieve failed: ${r.status}`))));
+		return (ds.properties as NotionPropertyMap) ?? null;
+	}
+	return (db.properties as NotionPropertyMap) ?? null;
+}
 const DEFAULT_TELEGRAM_NOTION_MAX_FILE_BYTES = 100 * 1024 * 1024;
 const NOTION_BLOCK_APPEND_BATCH_SIZE = 100;
 const TELEGRAM_SECRET_HEADER = "x-telegram-bot-api-secret-token";
@@ -675,12 +703,10 @@ ${text}${fileSummary}`;
 	const dbId = formatDatabaseId(databaseId);
 
 	try {
-		const db = await notion.databases.retrieve({ database_id: dbId });
-		const schema = resolveTelegramNotionSchema(
-			db.properties as Record<string, { type?: string; status?: { options?: { name: string }[] } }> | undefined,
-		);
+		const properties = await getNotionSchemaProperties(notionToken, dbId);
+		const schema = resolveTelegramNotionSchema(properties);
 		if (!schema) {
-			logNotionFailure("Notion schema unavailable", new Error("Notion database.retrieve returned no properties"), {
+			logNotionFailure("Notion schema unavailable", new Error("Notion data source returned no properties"), {
 				database_id: dbId,
 				chat_id: chat.id,
 				message_id,
