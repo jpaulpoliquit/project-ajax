@@ -393,9 +393,10 @@ function assertNonEmptyString(value: unknown, field: string): asserts value is s
 }
 
 function isAuthorizedTelegramWebhookRequest(secretHeader: string | null, requireSecret: boolean): boolean {
+	if (!requireSecret) return true;
 	const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
 	if (!expectedSecret) return true;
-	if (!secretHeader) return !requireSecret;
+	if (!secretHeader) return false;
 	return timingSafeStringEquals(secretHeader, expectedSecret);
 }
 

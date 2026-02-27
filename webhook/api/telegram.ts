@@ -491,9 +491,10 @@ function getHeaderValue(headers: Record<string, unknown>, name: string): string 
 }
 
 function isAuthorizedTelegramWebhookRequest(secretHeader: string | null, requireSecret: boolean): boolean {
+	if (!requireSecret) return true;
 	const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET_TOKEN;
 	if (!expectedSecret) return true;
-	if (!secretHeader) return !requireSecret;
+	if (!secretHeader) return false;
 	return timingSafeStringEquals(secretHeader, expectedSecret);
 }
 
