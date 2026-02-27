@@ -311,6 +311,45 @@ function findPropertyName(
 	return null;
 }
 
+function numberEqualsFilter(property: string, value: number): Record<string, unknown> {
+	return {
+		property,
+		number: { equals: value },
+	};
+}
+
+async function hasExistingTelegramPage(
+	notion: Client,
+	databaseId: string,
+	input: {
+		updateIdProp: string | null;
+		updateId: number | undefined;
+		chatIdProp: string | null;
+		chatId: number;
+		messageIdProp: string | null;
+		messageId: number;
+	},
+): Promise<boolean> {
+	let filter: Record<string, unknown> | null = null;
+	if (input.updateIdProp && input.updateId != null) {
+		filter = numberEqualsFilter(input.updateIdProp, input.updateId);
+	} else if (input.chatIdProp && input.messageIdProp) {
+		filter = {
+			and: [
+				numberEqualsFilter(input.chatIdProp, input.chatId),
+				numberEqualsFilter(input.messageIdProp, input.messageId),
+			],
+		};
+	}
+	if (!filter) return false;
+	const query = await notion.databases.query({
+		database_id: databaseId,
+		page_size: 1,
+		filter: filter as Parameters<typeof notion.databases.query>[0]["filter"],
+	});
+	return query.results.length > 0;
+}
+
 function parseNotionError(body: string): string {
 	try {
 		const parsed = JSON.parse(body) as { message?: string };
@@ -660,6 +699,20 @@ ${text}${fileSummary}`;
 		const topicIdProp = findPropertyName(props, "number", ["Topic ID", "Telegram Topic ID", "Thread ID", "Message Thread ID"]);
 		const messageIdProp = findPropertyName(props, "number", ["Message ID", "Telegram Message ID"]);
 		const updateIdProp = findPropertyName(props, "number", ["Update ID", "Telegram Update ID"]);
+		if (
+			await hasExistingTelegramPage(notion, dbId, {
+				updateIdProp,
+				updateId,
+				chatIdProp,
+				chatId: chat.id,
+				messageIdProp,
+				messageId: message_id,
+			})
+		) {
+			return new Response(JSON.stringify({ ok: true }), {
+				headers: { "Content-Type": "application/json" },
+			});
+		}
 		let statusProp: string | null = null;
 		let statusNotStarted: string | null = null;
 
