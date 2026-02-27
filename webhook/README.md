@@ -22,7 +22,8 @@ This is **separate** from the worker: the webhook runs on Vercel (or similar) 24
 
 4. **Set environment variables** in Vercel dashboard (Settings → Environment Variables):
    - `NOTION_API_TOKEN` – your Notion integration token
-   - `TELEGRAM_BOT_TOKEN` – from @BotFather (enables 👀 emoji reaction as ack)
+   - `TELEGRAM_BOT_TOKEN` – from @BotFather (required for webhook)
+   - `TELEGRAM_WEBHOOK_REACTION_ACK` – optional (`true` to send 👀 emoji on receipt; default off)
    - `NOTION_DATABASE_ID` – optional, default: `312009f00c208036be25c17b44b2c667`
    - `TELEGRAM_NOTION_MAX_FILE_BYTES` – optional max Telegram attachment size to upload to Notion (default: `104857600` / 100 MB)
    - `TELEGRAM_WEBHOOK_SECRET_TOKEN` – **required for verification**. Must match the secret registered with Telegram.

@@ -609,6 +609,7 @@ async function uploadTelegramFileToNotion(
 }
 
 async function setMessageReaction(chatId: number, messageId: number, messageThreadId?: number): Promise<void> {
+	if (!isTrueEnvFlag(process.env.TELEGRAM_WEBHOOK_REACTION_ACK)) return;
 	const token = process.env.TELEGRAM_BOT_TOKEN;
 	if (!token) return;
 	const body: Record<string, unknown> = {

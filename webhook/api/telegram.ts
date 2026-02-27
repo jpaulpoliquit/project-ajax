@@ -2,7 +2,7 @@
  * Vercel serverless function: receives Telegram webhook, creates Notion pages.
  * Set webhook: npx workers exec telegramSetWebhook -d '{"url":"https://notionworkers.vercel.app/api/telegram"}'
  *
- * Env: NOTION_API_TOKEN, TELEGRAM_BOT_TOKEN (for 👀 reaction ack), NOTION_DATABASE_ID
+ * Env: NOTION_API_TOKEN, TELEGRAM_BOT_TOKEN, NOTION_DATABASE_ID
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -709,6 +709,7 @@ async function uploadTelegramFileToNotion(
 export const config = { api: { bodyParser: true } };
 
 async function setMessageReaction(chatId: number, messageId: number, messageThreadId?: number): Promise<void> {
+	if (!isTrueEnvFlag(process.env.TELEGRAM_WEBHOOK_REACTION_ACK)) return;
 	const token = process.env.TELEGRAM_BOT_TOKEN;
 	if (!token) return;
 	const body: Record<string, unknown> = {
