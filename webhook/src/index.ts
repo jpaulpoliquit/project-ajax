@@ -7,6 +7,7 @@
  */
 
 import { Client } from "@notionhq/client";
+import { logNotionFailure, resolveTelegramNotionSchema } from "../shared/notion-schema";
 
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_API_VERSION = process.env.NOTION_API_VERSION ?? "2025-09-03";
@@ -291,24 +292,6 @@ function getMessage(msg: Record<string, unknown>): { text: string; chat: { id: n
 	const date = msg.date as number | undefined;
 	const message_thread_id = msg.message_thread_id as number | undefined;
 	return { text, chat, message_id, caption, date, ...(message_thread_id != null && { message_thread_id }) };
-}
-
-function normalizeName(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function findPropertyName(
-	properties: Record<string, { type?: string; status?: { options?: { name: string }[] } }> | null | undefined,
-	type: string,
-	candidates: string[],
-): string | null {
-	const wanted = new Set(candidates.map(normalizeName));
-	if (!properties || typeof properties !== "object") return null;
-	for (const [name, prop] of Object.entries(properties)) {
-		if (prop?.type !== type) continue;
-		if (wanted.has(normalizeName(name))) return name;
-	}
-	return null;
 }
 
 function numberEqualsFilter(property: string, value: number): Record<string, unknown> {
@@ -693,12 +676,24 @@ ${text}${fileSummary}`;
 
 	try {
 		const db = await notion.databases.retrieve({ database_id: dbId });
-		const props = db.properties as Record<string, { type?: string; status?: { options?: { name: string }[] } }>;
-		let titleProp = "Name";
-		const chatIdProp = findPropertyName(props, "number", ["Chat ID", "Telegram Chat ID"]);
-		const topicIdProp = findPropertyName(props, "number", ["Topic ID", "Telegram Topic ID", "Thread ID", "Message Thread ID"]);
-		const messageIdProp = findPropertyName(props, "number", ["Message ID", "Telegram Message ID"]);
-		const updateIdProp = findPropertyName(props, "number", ["Update ID", "Telegram Update ID"]);
+		const schema = resolveTelegramNotionSchema(
+			db.properties as Record<string, { type?: string; status?: { options?: { name: string }[] } }> | undefined,
+		);
+		if (!schema) {
+			logNotionFailure("Notion schema unavailable", new Error("Notion database.retrieve returned no properties"), {
+				database_id: dbId,
+				chat_id: chat.id,
+				message_id,
+				update_id: updateId ?? null,
+				phase: "database_retrieve",
+			});
+			return new Response(JSON.stringify({ ok: false, error: "Cannot read Notion database schema" }), {
+				status: 500,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+		const { titleProp, chatIdProp, topicIdProp, messageIdProp, updateIdProp, statusProp, statusNotStarted } =
+			schema;
 		if (
 			await hasExistingTelegramPage(notion, dbId, {
 				updateIdProp,
@@ -713,20 +708,6 @@ ${text}${fileSummary}`;
 				headers: { "Content-Type": "application/json" },
 			});
 		}
-		let statusProp: string | null = null;
-		let statusNotStarted: string | null = null;
-
-		for (const [name, prop] of Object.entries(props ?? {})) {
-			const t = prop?.type;
-			if (t === "title") titleProp = name;
-			else if (t === "status") {
-				statusProp = name;
-				const opts = prop?.status?.options;
-				const notStarted = opts?.find((o) => /not\s*started/i.test(o.name));
-				statusNotStarted = notStarted?.name ?? opts?.[0]?.name ?? null;
-			}
-		}
-
 		const pageProps: Record<string, unknown> = {
 			[titleProp]: {
 				title: [{ type: "text", text: { content: title } }],
@@ -803,7 +784,13 @@ ${text}${fileSummary}`;
 
 		await setMessageReaction(chat.id, message_id, message_thread_id);
 	} catch (err) {
-		console.error("Notion create failed:", err);
+		logNotionFailure("Notion create failed", err, {
+			database_id: dbId,
+			chat_id: chat.id,
+			message_id,
+			update_id: updateId ?? null,
+			phase: "create_page",
+		});
 		return new Response(
 			JSON.stringify({ ok: false, error: err instanceof Error ? err.message : "Notion API error" }),
 			{ status: 500, headers: { "Content-Type": "application/json" } },

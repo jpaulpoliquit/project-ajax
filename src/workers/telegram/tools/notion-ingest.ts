@@ -113,12 +113,43 @@ function formatDatabaseId(id: string): string {
 	return `${clean.slice(0, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}-${clean.slice(16, 20)}-${clean.slice(20, 32)}`;
 }
 
-function getTitlePropertyName(properties: Record<string, { type?: string }> | null | undefined): string {
-	if (!properties || typeof properties !== "object") return "Name";
+type TelegramNotionSchema = {
+	titleProp: string;
+	chatIdProp: string | null;
+	topicIdProp: string | null;
+	messageIdProp: string | null;
+	updateIdProp: string | null;
+};
+
+function resolveTelegramNotionSchema(
+	properties: Record<string, { type?: string }> | null | undefined,
+): TelegramNotionSchema | null {
+	if (!properties || typeof properties !== "object") return null;
+	const normalizeName = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+	const findPropertyName = (type: string, candidates: string[]): string | null => {
+		const wanted = new Set(candidates.map(normalizeName));
+		for (const [name, prop] of Object.entries(properties)) {
+			if (prop?.type !== type) continue;
+			if (wanted.has(normalizeName(name))) return name;
+		}
+		return null;
+	};
+
+	let titleProp = "Name";
 	for (const [name, prop] of Object.entries(properties)) {
-		if (prop?.type === "title") return name;
+		if (prop?.type === "title") {
+			titleProp = name;
+			break;
+		}
 	}
-	return "Name";
+
+	return {
+		titleProp,
+		chatIdProp: findPropertyName("number", ["Chat ID", "Telegram Chat ID"]),
+		topicIdProp: findPropertyName("number", ["Topic ID", "Telegram Topic ID", "Thread ID", "Message Thread ID"]),
+		messageIdProp: findPropertyName("number", ["Message ID", "Telegram Message ID"]),
+		updateIdProp: findPropertyName("number", ["Update ID", "Telegram Update ID"]),
+	};
 }
 
 function getMaxUploadBytes(): number {
@@ -224,24 +255,6 @@ function buildAttachmentBlock(blockType: NotionAttachmentBlockType, fileUploadId
 		caption: toRichText(caption),
 	};
 	return block;
-}
-
-function normalizeName(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function findPropertyName(
-	properties: Record<string, { type?: string }> | null | undefined,
-	type: string,
-	candidates: string[],
-): string | null {
-	const wanted = new Set(candidates.map(normalizeName));
-	if (!properties || typeof properties !== "object") return null;
-	for (const [name, prop] of Object.entries(properties)) {
-		if (prop?.type !== type) continue;
-		if (wanted.has(normalizeName(name))) return name;
-	}
-	return null;
 }
 
 function numberEqualsFilter(property: string, value: number): Record<string, unknown> {
@@ -534,12 +547,16 @@ export function registerNotionIngestTools(worker: Worker): void {
 
 				// Fetch database schema to get title property name
 				const db = await notionClient.databases.retrieve({ database_id: dbId });
-				const titleProp = getTitlePropertyName(db.properties as Record<string, { type?: string }>);
-				const props = db.properties as Record<string, { type?: string }>;
-				const chatIdProp = findPropertyName(props, "number", ["Chat ID", "Telegram Chat ID"]);
-				const topicIdProp = findPropertyName(props, "number", ["Topic ID", "Telegram Topic ID", "Thread ID", "Message Thread ID"]);
-				const messageIdProp = findPropertyName(props, "number", ["Message ID", "Telegram Message ID"]);
-				const updateIdProp = findPropertyName(props, "number", ["Update ID", "Telegram Update ID"]);
+				const schema = resolveTelegramNotionSchema(db.properties as Record<string, { type?: string }> | undefined);
+				if (!schema) {
+					console.error("Notion ingest failed", {
+						failure_class: "schema_unavailable",
+						database_id: dbId,
+						phase: "database_retrieve",
+					});
+					throw new Error(`Notion database.retrieve returned no properties for ${dbId} — check integration access`);
+				}
+				const { titleProp, chatIdProp, topicIdProp, messageIdProp, updateIdProp } = schema;
 
 				// Fetch Telegram updates
 				const result = await telegramApi<TelegramUpdate[]>(token, "getUpdates", {
