@@ -113,7 +113,8 @@ function formatDatabaseId(id: string): string {
 	return `${clean.slice(0, 8)}-${clean.slice(8, 12)}-${clean.slice(12, 16)}-${clean.slice(16, 20)}-${clean.slice(20, 32)}`;
 }
 
-function getTitlePropertyName(properties: Record<string, { type?: string }>): string {
+function getTitlePropertyName(properties: Record<string, { type?: string }> | null | undefined): string {
+	if (!properties || typeof properties !== "object") return "Name";
 	for (const [name, prop] of Object.entries(properties)) {
 		if (prop?.type === "title") return name;
 	}
@@ -230,11 +231,12 @@ function normalizeName(name: string): string {
 }
 
 function findPropertyName(
-	properties: Record<string, { type?: string }>,
+	properties: Record<string, { type?: string }> | null | undefined,
 	type: string,
 	candidates: string[],
 ): string | null {
 	const wanted = new Set(candidates.map(normalizeName));
+	if (!properties || typeof properties !== "object") return null;
 	for (const [name, prop] of Object.entries(properties)) {
 		if (prop?.type !== type) continue;
 		if (wanted.has(normalizeName(name))) return name;

@@ -301,11 +301,12 @@ function normalizeName(name: string): string {
 }
 
 function findPropertyName(
-	properties: Record<string, { type?: string; status?: { options?: { name: string }[] } }>,
+	properties: Record<string, { type?: string; status?: { options?: { name: string }[] } }> | null | undefined,
 	type: string,
 	candidates: string[],
 ): string | null {
 	const wanted = new Set(candidates.map(normalizeName));
+	if (!properties || typeof properties !== "object") return null;
 	for (const [name, prop] of Object.entries(properties)) {
 		if (prop?.type !== type) continue;
 		if (wanted.has(normalizeName(name))) return name;
@@ -666,7 +667,7 @@ ${text}${fileSummary}`;
 		let statusProp: string | null = null;
 		let statusNotStarted: string | null = null;
 
-		for (const [name, prop] of Object.entries(props)) {
+		for (const [name, prop] of Object.entries(props ?? {})) {
 			const t = prop?.type;
 			if (t === "title") titleProp = name;
 			else if (t === "status") {
