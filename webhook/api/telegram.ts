@@ -10,7 +10,95 @@ type VercelRequest = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type VercelResponse = any;
 import { Client } from "@notionhq/client";
-import { logNotionFailure, resolveTelegramNotionSchema } from "../shared/notion-schema.js";
+
+// Inlined from shared/notion-schema (avoids ESM resolution issues on Vercel)
+type NotionDatabaseProperty = {
+	type?: string;
+	status?: { options?: { name: string }[] };
+};
+type NotionPropertyMap = Record<string, NotionDatabaseProperty>;
+type TelegramNotionSchema = {
+	titleProp: string;
+	chatIdProp: string | null;
+	topicIdProp: string | null;
+	messageIdProp: string | null;
+	updateIdProp: string | null;
+	statusProp: string | null;
+	statusNotStarted: string | null;
+};
+
+function normalizeName(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+function findPropertyName(
+	properties: NotionPropertyMap | null | undefined,
+	type: string,
+	candidates: string[],
+): string | null {
+	const wanted = new Set(candidates.map(normalizeName));
+	if (properties == null || typeof properties !== "object" || Array.isArray(properties)) return null;
+	try {
+		for (const [name, prop] of Object.entries(properties)) {
+			if (prop?.type !== type) continue;
+			if (wanted.has(normalizeName(name))) return name;
+		}
+	} catch {
+		return null;
+	}
+	return null;
+}
+function resolveTelegramNotionSchema(properties: NotionPropertyMap | null | undefined): TelegramNotionSchema | null {
+	if (properties == null || typeof properties !== "object" || Array.isArray(properties)) return null;
+	let titleProp = "Name";
+	let statusProp: string | null = null;
+	let statusNotStarted: string | null = null;
+	try {
+		for (const [name, prop] of Object.entries(properties)) {
+			const t = prop?.type;
+			if (t === "title") titleProp = name;
+			else if (t === "status") {
+				statusProp = name;
+				const options = prop?.status?.options;
+				statusNotStarted = options?.find((o) => /not\s*started/i.test(o.name))?.name ?? options?.[0]?.name ?? null;
+			}
+		}
+	} catch {
+		return null;
+	}
+	return {
+		titleProp,
+		chatIdProp: findPropertyName(properties, "number", ["Chat ID", "Telegram Chat ID"]),
+		topicIdProp: findPropertyName(properties, "number", ["Topic ID", "Telegram Topic ID", "Thread ID", "Message Thread ID"]),
+		messageIdProp: findPropertyName(properties, "number", ["Message ID", "Telegram Message ID"]),
+		updateIdProp: findPropertyName(properties, "number", ["Update ID", "Telegram Update ID"]),
+		statusProp,
+		statusNotStarted,
+	};
+}
+function logNotionFailure(event: string, error: unknown, context: Record<string, unknown>): void {
+	const code = (error && typeof error === "object" && "code" in error && typeof (error as { code?: unknown }).code === "string")
+		? (error as { code: string }).code
+		: null;
+	const message = error instanceof Error ? error.message : String(error);
+	console.error(event, {
+		failure_class: (() => {
+			switch (code) {
+				case "object_not_found": return "object_not_found";
+				case "unauthorized":
+				case "restricted_resource": return "unauthorized";
+				case "rate_limited": return "rate_limited";
+				case "validation_error": return "validation_error";
+				case "conflict_error": return "conflict_error";
+				case "request_timeout": return "request_timeout";
+			}
+			if (error instanceof Error && /no properties/i.test(error.message)) return "schema_unavailable";
+			return code ? "api_response_error" : "unknown";
+		})(),
+		notion_error_code: code,
+		message,
+		...context,
+	});
+}
 
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_API_VERSION = process.env.NOTION_API_VERSION ?? "2025-09-03";
